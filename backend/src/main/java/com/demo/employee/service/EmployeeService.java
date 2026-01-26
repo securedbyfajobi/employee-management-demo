@@ -1,6 +1,8 @@
 package com.demo.employee.service;
 
 import com.demo.employee.dto.EmployeeDTO;
+import com.demo.employee.exception.DuplicateEmailException;
+import com.demo.employee.exception.EmployeeNotFoundException;
 import com.demo.employee.model.Department;
 import com.demo.employee.model.Employee;
 import com.demo.employee.repository.EmployeeRepository;
@@ -26,7 +28,7 @@ public class EmployeeService {
 
     public EmployeeDTO getEmployeeById(Long id) {
         Employee employee = employeeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Employee not found with id: " + id));
+                .orElseThrow(() -> new EmployeeNotFoundException(id));
         return toDTO(employee);
     }
 
@@ -40,7 +42,7 @@ public class EmployeeService {
     @Transactional
     public EmployeeDTO createEmployee(EmployeeDTO dto) {
         if (employeeRepository.existsByEmail(dto.getEmail())) {
-            throw new RuntimeException("Employee with email " + dto.getEmail() + " already exists");
+            throw new DuplicateEmailException(dto.getEmail());
         }
         Employee employee = toEntity(dto);
         Employee saved = employeeRepository.save(employee);
@@ -50,11 +52,11 @@ public class EmployeeService {
     @Transactional
     public EmployeeDTO updateEmployee(Long id, EmployeeDTO dto) {
         Employee existing = employeeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Employee not found with id: " + id));
+                .orElseThrow(() -> new EmployeeNotFoundException(id));
 
         if (!existing.getEmail().equals(dto.getEmail()) &&
             employeeRepository.existsByEmail(dto.getEmail())) {
-            throw new RuntimeException("Employee with email " + dto.getEmail() + " already exists");
+            throw new DuplicateEmailException(dto.getEmail());
         }
 
         existing.setFirstName(dto.getFirstName());
@@ -71,7 +73,7 @@ public class EmployeeService {
     @Transactional
     public void deleteEmployee(Long id) {
         if (!employeeRepository.existsById(id)) {
-            throw new RuntimeException("Employee not found with id: " + id);
+            throw new EmployeeNotFoundException(id);
         }
         employeeRepository.deleteById(id);
     }
