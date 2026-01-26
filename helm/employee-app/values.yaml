@@ -1,0 +1,211 @@
+# Global configuration
+global:
+  owner: platform-team
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# Namespace configuration
+namespaces:
+  frontend: employee-app-frontend
+  backend: employee-app-backend
+  database: employee-app-db
+
+# Pod Security Standards
+podSecurityStandards:
+  frontend: restricted
+  backend: restricted
+  database: baseline
+
+# Frontend configuration
+frontend:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: employee-frontend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "128Mi"
+      cpu: "100m"
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 101
+    runAsGroup: 101
+    fsGroup: 101
+    readOnlyRootFilesystem: true
+
+# Backend configuration
+backend:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: employee-backend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    readOnlyRootFilesystem: false  # Java apps need /tmp
+  probes:
+    liveness:
+      initialDelaySeconds: 60
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readiness:
+      initialDelaySeconds: 30
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 3
+
+# Reports service configuration
+reports:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: employee-reports
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8081
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    readOnlyRootFilesystem: false  # Java apps need /tmp
+  probes:
+    liveness:
+      initialDelaySeconds: 60
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readiness:
+      initialDelaySeconds: 30
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 3
+
+# MySQL configuration
+mysql:
+  enabled: true
+  image:
+    repository: mysql
+    tag: "8.0.36"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3306
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClass: ""
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+    readOnlyRootFilesystem: false  # MySQL needs data directory
+  auth:
+    # REQUIRED: Must be set at install time - do not use defaults in production
+    # Example: --set mysql.auth.rootPassword=$(openssl rand -base64 32)
+    rootPassword: ""  # Required
+    database: employeedb
+    username: appuser
+    password: ""  # Required
+    reportsUsername: reports_reader
+    reportsPassword: ""  # Required
+    # Use existingSecret to reference a pre-created secret instead
+    existingSecret: ""
+
+# Ingress / Gateway configuration
+ingress:
+  enabled: true
+  className: ""
+  gatewayApi:
+    enabled: true
+    gatewayName: envoy-gateway
+    gatewayNamespace: envoy-gateway-system
+  hosts:
+    - host: ""
+      paths:
+        - path: /
+          pathType: Prefix
+
+# Network policies
+networkPolicies:
+  enabled: true
+
+# Monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+    interval: 30s
+
+# Service Accounts (required for Vault/ESO authentication)
+serviceAccount:
+  create: false  # Set to true when using ESO/Vault
+  backend:
+    name: backend-sa
+    annotations: {}
+      # For Vault Kubernetes auth:
+      # vault.hashicorp.com/role: "backend-role"
+  reports:
+    name: reports-sa
+    annotations: {}
+      # vault.hashicorp.com/role: "reports-role"
+  mysql:
+    name: mysql-sa
+    annotations: {}
+      # vault.hashicorp.com/role: "mysql-role"
+
+# External Secrets Operator (ESO) configuration
+externalSecrets:
+  enabled: false  # Set to true to use ESO for secrets management
+  refreshInterval: "1h"
+  secretStoreRef:
+    name: vault-backend  # Name of your ClusterSecretStore/SecretStore
+    kind: ClusterSecretStore
+  # Separate Vault paths per application for least-privilege access
+  mysql:
+    path: "secret/data/employee-app/mysql"  # MySQL root credentials
+  backend:
+    path: "secret/data/employee-app/backend"  # Backend's MySQL credentials
+  reports:
+    path: "secret/data/employee-app/reports"  # Reports read-only credentials

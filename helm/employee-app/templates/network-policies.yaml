@@ -1,0 +1,161 @@
+{{- if .Values.networkPolicies.enabled }}
+# Frontend Network Policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-network-policy
+  namespace: {{ .Values.namespaces.frontend }}
+  labels:
+    {{- include "employee-app.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: frontend
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.ingress.gatewayApi.gatewayNamespace }}
+      ports:
+        - protocol: TCP
+          port: 80
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+---
+# Backend Network Policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-network-policy
+  namespace: {{ .Values.namespaces.backend }}
+  labels:
+    {{- include "employee-app.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: backend
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.ingress.gatewayApi.gatewayNamespace }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.backend.service.port }}
+    {{- if .Values.monitoring.enabled }}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.monitoring.serviceMonitor.namespace }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.backend.service.port }}
+    {{- end }}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.namespaces.database }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.mysql.service.port }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+---
+# Reports Network Policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: reports-network-policy
+  namespace: {{ .Values.namespaces.backend }}
+  labels:
+    {{- include "employee-app.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: reports
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.ingress.gatewayApi.gatewayNamespace }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.reports.service.port }}
+    {{- if .Values.monitoring.enabled }}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.monitoring.serviceMonitor.namespace }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.reports.service.port }}
+    {{- end }}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.namespaces.database }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.mysql.service.port }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+---
+# MySQL Network Policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mysql-network-policy
+  namespace: {{ .Values.namespaces.database }}
+  labels:
+    {{- include "employee-app.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: mysql
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.namespaces.backend }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.mysql.service.port }}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+{{- end }}

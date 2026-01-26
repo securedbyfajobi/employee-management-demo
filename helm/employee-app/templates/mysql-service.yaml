@@ -1,0 +1,19 @@
+{{- if .Values.mysql.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: {{ .Values.namespaces.database }}
+  labels:
+    {{- include "employee-app.labels" . | nindent 4 }}
+    {{- include "employee-app.mysql.selectorLabels" . | nindent 4 }}
+spec:
+  type: {{ .Values.mysql.service.type }}
+  ports:
+    - port: {{ .Values.mysql.service.port }}
+      targetPort: 3306
+      protocol: TCP
+      name: mysql
+  selector:
+    {{- include "employee-app.mysql.selectorLabels" . | nindent 4 }}
+{{- end }}

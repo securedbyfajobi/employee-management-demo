@@ -32,6 +32,7 @@ spec:
               name: http
           securityContext:
             allowPrivilegeEscalation: false
+            privileged: false
             readOnlyRootFilesystem: false
             capabilities:
               drop:

@@ -1,25 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backend
+  name: reports
   namespace: employee-app-backend
   labels:
-    app: backend
+    app: reports
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
-      app: backend
+      app: reports
   template:
     metadata:
       labels:
-        app: backend
+        app: reports
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: "8080"
+        prometheus.io/port: "8081"
         prometheus.io/path: "/actuator/prometheus"
     spec:
-      serviceAccountName: backend-sa
+      serviceAccountName: reports-sa
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
@@ -29,11 +29,11 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: backend
-          image: employee-backend:1.0.0
+        - name: reports
+          image: reports-service:1.0.0
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8080
+            - containerPort: 8081
               name: http
           securityContext:
             allowPrivilegeEscalation: false
@@ -61,12 +61,12 @@ spec:
             - name: MYSQL_USER
               valueFrom:
                 secretKeyRef:
-                  name: mysql-secret
+                  name: reports-db-secret
                   key: mysql-user
             - name: MYSQL_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: mysql-secret
+                  name: reports-db-secret
                   key: mysql-password
           resources:
             requests:
@@ -78,7 +78,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /actuator/health
-              port: 8080
+              port: 8081
             initialDelaySeconds: 60
             periodSeconds: 10
             timeoutSeconds: 5
@@ -86,7 +86,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /actuator/health
-              port: 8080
+              port: 8081
             initialDelaySeconds: 30
             periodSeconds: 5
             timeoutSeconds: 2

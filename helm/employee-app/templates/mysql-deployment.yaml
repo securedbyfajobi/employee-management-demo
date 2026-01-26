@@ -1,44 +1,41 @@
+{{- if .Values.mysql.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mysql
-  namespace: employee-app-db
+  namespace: {{ .Values.namespaces.database }}
   labels:
-    app: mysql
+    {{- include "employee-app.labels" . | nindent 4 }}
+    {{- include "employee-app.mysql.selectorLabels" . | nindent 4 }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: mysql
+      {{- include "employee-app.mysql.selectorLabels" . | nindent 6 }}
   strategy:
     type: Recreate
   template:
     metadata:
       labels:
-        app: mysql
+        {{- include "employee-app.mysql.selectorLabels" . | nindent 8 }}
     spec:
-      serviceAccountName: mysql-sa
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ .Values.serviceAccount.mysql.name }}
+      automountServiceAccountToken: true
+      {{- else }}
       automountServiceAccountToken: false
+      {{- end }}
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 999
-        runAsGroup: 999
-        fsGroup: 999
-        seccompProfile:
-          type: RuntimeDefault
+        {{- include "employee-app.podSecurityContext" .Values.mysql.securityContext | nindent 8 }}
       containers:
         - name: mysql
-          image: mysql:8.0.36
+          image: {{ .Values.mysql.image.repository }}:{{ .Values.mysql.image.tag }}
+          imagePullPolicy: {{ .Values.mysql.image.pullPolicy }}
           ports:
             - containerPort: 3306
               name: mysql
           securityContext:
-            allowPrivilegeEscalation: false
-            privileged: false
-            readOnlyRootFilesystem: false
-            capabilities:
-              drop:
-                - ALL
+            {{- include "employee-app.containerSecurityContext" .Values.mysql.securityContext | nindent 12 }}
           env:
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:
@@ -66,12 +63,7 @@ spec:
             - name: mysql-init
               mountPath: /docker-entrypoint-initdb.d
           resources:
-            requests:
-              memory: "256Mi"
-              cpu: "250m"
-            limits:
-              memory: "512Mi"
-              cpu: "500m"
+            {{- toYaml .Values.mysql.resources | nindent 12 }}
           livenessProbe:
             exec:
               command:
@@ -94,8 +86,13 @@ spec:
             timeoutSeconds: 2
       volumes:
         - name: mysql-storage
+          {{- if .Values.mysql.persistence.enabled }}
           persistentVolumeClaim:
             claimName: mysql-pvc
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
         - name: mysql-init
           configMap:
             name: mysql-init
+{{- end }}

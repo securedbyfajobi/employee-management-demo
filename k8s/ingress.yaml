@@ -44,6 +44,15 @@ spec:
         - name: backend
           namespace: employee-app-backend
           port: 8080
+    # Reports service (must be before /api)
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/reports
+      backendRefs:
+        - name: reports
+          namespace: employee-app-backend
+          port: 8081
     # API routes - backend service (after specific /api-* routes)
     - matches:
         - path:

@@ -1,0 +1,19 @@
+{{- if .Values.reports.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: reports
+  namespace: {{ .Values.namespaces.backend }}
+  labels:
+    {{- include "employee-app.labels" . | nindent 4 }}
+    {{- include "employee-app.reports.selectorLabels" . | nindent 4 }}
+spec:
+  type: {{ .Values.reports.service.type }}
+  ports:
+    - port: {{ .Values.reports.service.port }}
+      targetPort: {{ .Values.reports.service.port }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "employee-app.reports.selectorLabels" . | nindent 4 }}
+{{- end }}

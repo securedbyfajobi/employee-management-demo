@@ -1,0 +1,76 @@
+{{- if .Values.reports.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reports
+  namespace: {{ .Values.namespaces.backend }}
+  labels:
+    {{- include "employee-app.labels" . | nindent 4 }}
+    {{- include "employee-app.reports.selectorLabels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.reports.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "employee-app.reports.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "employee-app.reports.selectorLabels" . | nindent 8 }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.reports.service.port }}"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ .Values.serviceAccount.reports.name }}
+      automountServiceAccountToken: true
+      {{- else }}
+      automountServiceAccountToken: false
+      {{- end }}
+      securityContext:
+        {{- include "employee-app.podSecurityContext" .Values.reports.securityContext | nindent 8 }}
+      containers:
+        - name: reports
+          image: {{ include "employee-app.image" (dict "global" .Values.global "image" .Values.reports.image) }}
+          imagePullPolicy: {{ .Values.reports.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.reports.service.port }}
+              name: http
+          securityContext:
+            {{- include "employee-app.containerSecurityContext" .Values.reports.securityContext | nindent 12 }}
+          env:
+            - name: MYSQL_HOST
+              value: mysql.{{ .Values.namespaces.database }}.svc.cluster.local
+            - name: MYSQL_PORT
+              value: "{{ .Values.mysql.service.port }}"
+            - name: MYSQL_DATABASE
+              value: {{ .Values.mysql.auth.database }}
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: reports-db-secret
+                  key: mysql-user
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: reports-db-secret
+                  key: mysql-password
+          resources:
+            {{- toYaml .Values.reports.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: {{ .Values.reports.service.port }}
+            initialDelaySeconds: {{ .Values.reports.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.reports.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.reports.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.reports.probes.liveness.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: {{ .Values.reports.service.port }}
+            initialDelaySeconds: {{ .Values.reports.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.reports.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.reports.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.reports.probes.readiness.failureThreshold }}
+{{- end }}

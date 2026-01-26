@@ -1,0 +1,33 @@
+# RBAC for MySQL - can only read mysql-secret in its namespace
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mysql-sa
+  namespace: employee-app-db
+  labels:
+    app: mysql
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mysql-secret-reader
+  namespace: employee-app-db
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["mysql-secret"]  # Only this secret
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mysql-secret-reader-binding
+  namespace: employee-app-db
+subjects:
+  - kind: ServiceAccount
+    name: mysql-sa
+    namespace: employee-app-db
+roleRef:
+  kind: Role
+  name: mysql-secret-reader
+  apiGroup: rbac.authorization.k8s.io

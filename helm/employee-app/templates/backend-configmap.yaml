@@ -1,0 +1,14 @@
+{{- if .Values.backend.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: {{ .Values.namespaces.backend }}
+  labels:
+    {{- include "employee-app.labels" . | nindent 4 }}
+    {{- include "employee-app.backend.selectorLabels" . | nindent 4 }}
+data:
+  MYSQL_HOST: mysql.{{ .Values.namespaces.database }}.svc.cluster.local
+  MYSQL_PORT: "{{ .Values.mysql.service.port }}"
+  MYSQL_DATABASE: {{ .Values.mysql.auth.database }}
+{{- end }}

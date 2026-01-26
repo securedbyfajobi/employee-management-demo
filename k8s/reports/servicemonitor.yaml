@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: reports-monitor
+  namespace: employee-app-backend
+  labels:
+    app: reports
+spec:
+  selector:
+    matchLabels:
+      app: reports
+  namespaceSelector:
+    matchNames:
+      - employee-app-backend
+  endpoints:
+    - port: http
+      path: /actuator/prometheus
+      interval: 30s
+      scrapeTimeout: 10s

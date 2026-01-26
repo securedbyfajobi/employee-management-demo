@@ -1,0 +1,83 @@
+{{- if and .Values.ingress.enabled .Values.ingress.gatewayApi.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "employee-app.fullname" . }}
+  namespace: {{ .Values.namespaces.frontend }}
+  labels:
+    {{- include "employee-app.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ .Values.ingress.gatewayApi.gatewayName }}
+      namespace: {{ .Values.ingress.gatewayApi.gatewayNamespace }}
+  rules:
+    # Swagger/OpenAPI endpoints - must be before /api
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api-docs
+      backendRefs:
+        - name: backend
+          namespace: {{ .Values.namespaces.backend }}
+          port: {{ .Values.backend.service.port }}
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /swagger-ui
+      backendRefs:
+        - name: backend
+          namespace: {{ .Values.namespaces.backend }}
+          port: {{ .Values.backend.service.port }}
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /v3/api-docs
+      backendRefs:
+        - name: backend
+          namespace: {{ .Values.namespaces.backend }}
+          port: {{ .Values.backend.service.port }}
+    # Reports API
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/reports
+      backendRefs:
+        - name: reports
+          namespace: {{ .Values.namespaces.backend }}
+          port: {{ .Values.reports.service.port }}
+    # Backend API
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api
+      backendRefs:
+        - name: backend
+          namespace: {{ .Values.namespaces.backend }}
+          port: {{ .Values.backend.service.port }}
+    # Frontend (default)
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: frontend
+          namespace: {{ .Values.namespaces.frontend }}
+          port: {{ .Values.frontend.service.port }}
+---
+# ReferenceGrant to allow HTTPRoute to reference services in backend namespace
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-frontend-to-backend
+  namespace: {{ .Values.namespaces.backend }}
+  labels:
+    {{- include "employee-app.labels" . | nindent 4 }}
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: {{ .Values.namespaces.frontend }}
+  to:
+    - group: ""
+      kind: Service
+{{- end }}

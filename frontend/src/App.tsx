@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import Navbar from './components/Navbar';
+import Navbar, { ViewType } from './components/Navbar';
 import EmployeeList from './components/EmployeeList';
 import EmployeeForm from './components/EmployeeForm';
+import Reports from './components/Reports';
 import { Employee } from './types/Employee';
 import { employeeApi } from './services/api';
 
 function App() {
+  const [currentView, setCurrentView] = useState<ViewType>('employees');
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -27,8 +29,10 @@ function App() {
   };
 
   useEffect(() => {
-    fetchEmployees();
-  }, []);
+    if (currentView === 'employees') {
+      fetchEmployees();
+    }
+  }, [currentView]);
 
   const handleAddClick = () => {
     setEditingEmployee(null);
@@ -75,7 +79,11 @@ function App() {
 
   return (
     <div className="app">
-      <Navbar onAddClick={handleAddClick} />
+      <Navbar
+        currentView={currentView}
+        onViewChange={setCurrentView}
+        onAddClick={handleAddClick}
+      />
 
       <main className="main-content">
         {error && (
@@ -85,12 +93,16 @@ function App() {
           </div>
         )}
 
-        <EmployeeList
-          employees={employees}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          loading={loading}
-        />
+        {currentView === 'employees' ? (
+          <EmployeeList
+            employees={employees}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            loading={loading}
+          />
+        ) : (
+          <Reports />
+        )}
       </main>
 
       {showForm && (

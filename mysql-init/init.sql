@@ -1,0 +1,4 @@
+-- Create read-only user for reports service
+CREATE USER IF NOT EXISTS 'reports_reader'@'%' IDENTIFIED BY 'reportsreadonly';
+GRANT SELECT ON employeedb.* TO 'reports_reader'@'%';
+FLUSH PRIVILEGES;

@@ -1,0 +1,33 @@
+# RBAC for Backend - can only read mysql-secret
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backend-sa
+  namespace: employee-app-backend
+  labels:
+    app: backend
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: backend-secret-reader
+  namespace: employee-app-backend
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["mysql-secret"]  # Only this secret
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: backend-secret-reader-binding
+  namespace: employee-app-backend
+subjects:
+  - kind: ServiceAccount
+    name: backend-sa
+    namespace: employee-app-backend
+roleRef:
+  kind: Role
+  name: backend-secret-reader
+  apiGroup: rbac.authorization.k8s.io

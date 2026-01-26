@@ -11,6 +11,7 @@ services:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
       interval: 10s
@@ -39,6 +40,25 @@ services:
     networks:
       - employee-network
 
+  reports:
+    build:
+      context: ./reports-service
+      dockerfile: Dockerfile
+    container_name: employee-reports
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: employeedb
+      MYSQL_USER: reports_reader
+      MYSQL_PASSWORD: reportsreadonly
+    ports:
+      - "8081:8081"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - employee-network
+
   frontend:
     build:
       context: ./frontend
@@ -48,6 +68,7 @@ services:
       - "3000:80"
     depends_on:
       - backend
+      - reports
     networks:
       - employee-network
 
