@@ -20,15 +20,8 @@ helm install employee-app ./helm/employee-app \
 
 # Production with ESO/Vault
 helm install employee-app ./helm/employee-app \
-  --set serviceAccount.create=true \
-  --set serviceAccount.backend.annotations."vault\.hashicorp\.com/role"=backend-role \
-  --set serviceAccount.reports.annotations."vault\.hashicorp\.com/role"=reports-role \
-  --set serviceAccount.mysql.annotations."vault\.hashicorp\.com/role"=mysql-role \
   --set externalSecrets.enabled=true \
-  --set externalSecrets.secretStoreRef.name=vault-backend \
-  --set externalSecrets.mysql.path=secret/data/employee-app/mysql \
-  --set externalSecrets.backend.path=secret/data/employee-app/backend \
-  --set externalSecrets.reports.path=secret/data/employee-app/reports
+  --set externalSecrets.secretStoreRef.name=vault-backend
 ```
 
 ## Configuration
