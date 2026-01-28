@@ -59,8 +59,8 @@ public class EmployeeService {
             throw new DuplicateEmailException(dto.getEmail());
         }
 
-        existing.setFirstName(dto.getFirstName());
-        existing.setLastName(dto.getLastName());
+        existing.setFirstName(capitalize(dto.getFirstName()));
+        existing.setLastName(capitalize(dto.getLastName()));
         existing.setEmail(dto.getEmail());
         existing.setDepartment(dto.getDepartment());
         existing.setSalary(dto.getSalary());
@@ -92,12 +92,19 @@ public class EmployeeService {
 
     private Employee toEntity(EmployeeDTO dto) {
         Employee employee = new Employee();
-        employee.setFirstName(dto.getFirstName());
-        employee.setLastName(dto.getLastName());
+        employee.setFirstName(capitalize(dto.getFirstName()));
+        employee.setLastName(capitalize(dto.getLastName()));
         employee.setEmail(dto.getEmail());
         employee.setDepartment(dto.getDepartment());
         employee.setSalary(dto.getSalary());
         employee.setHireDate(dto.getHireDate());
         return employee;
+    }
+
+    private String capitalize(String str) {
+        if (str == null || str.isEmpty()) {
+            return str;
+        }
+        return str.substring(0, 1).toUpperCase() + str.substring(1).toLowerCase();
     }
 }
