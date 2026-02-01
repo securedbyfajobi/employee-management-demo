@@ -104,7 +104,7 @@ jobs:
       matrix:
         include:
           - language: java-kotlin
-            build_command: mvn compile -B -f backend/pom.xml
+            build_command: mvn compile -B -f backend/pom.xml && mvn compile -B -f reports-service/pom.xml
           - language: javascript-typescript
     steps:
       - name: Checkout code
