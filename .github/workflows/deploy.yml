@@ -1,0 +1,85 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  # -----------------------------------------------------------
+  # Gate: only proceed if CI succeeded
+  # -----------------------------------------------------------
+  check-ci:
+    name: Verify CI success
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    outputs:
+      image_tag: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: CI passed
+        run: echo "CI succeeded. Deploying SHA ${{ github.event.workflow_run.head_sha }}"
+
+  # -----------------------------------------------------------
+  # Stage 1: Dev (automatic — shared cluster with QA)
+  # -----------------------------------------------------------
+  deploy-dev:
+    needs: check-ci
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      environment: dev
+      overlay_path: kustomize/overlays/dev
+      image_tag: ${{ needs.check-ci.outputs.image_tag }}
+      vault_secret_path: secret/data/k8s/dev-qa/kubeconfig
+    concurrency:
+      group: deploy-dev
+      cancel-in-progress: false
+
+  # -----------------------------------------------------------
+  # Stage 2: QA (automatic after dev — shared cluster with Dev)
+  # -----------------------------------------------------------
+  deploy-qa:
+    needs: [check-ci, deploy-dev]
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      environment: qa
+      overlay_path: kustomize/overlays/qa
+      image_tag: ${{ needs.check-ci.outputs.image_tag }}
+      vault_secret_path: secret/data/k8s/dev-qa/kubeconfig
+    concurrency:
+      group: deploy-qa
+      cancel-in-progress: false
+
+  # -----------------------------------------------------------
+  # Stage 3: UAT (requires manual approval — shared cluster with Prod)
+  # -----------------------------------------------------------
+  deploy-uat:
+    needs: [check-ci, deploy-qa]
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      environment: uat
+      overlay_path: kustomize/overlays/uat
+      image_tag: ${{ needs.check-ci.outputs.image_tag }}
+      vault_secret_path: secret/data/k8s/uat-prod/kubeconfig
+    concurrency:
+      group: deploy-uat
+      cancel-in-progress: false
+
+  # -----------------------------------------------------------
+  # Stage 4: Prod (requires manual approval — shared cluster with UAT)
+  # -----------------------------------------------------------
+  deploy-prod:
+    needs: [check-ci, deploy-uat]
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      environment: prod
+      overlay_path: kustomize/overlays/prod
+      image_tag: ${{ needs.check-ci.outputs.image_tag }}
+      vault_secret_path: secret/data/k8s/uat-prod/kubeconfig
+    concurrency:
+      group: deploy-prod
+      cancel-in-progress: false

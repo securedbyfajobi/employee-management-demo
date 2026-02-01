@@ -1,0 +1,64 @@
+name: Lint and Test
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        required: true
+        type: string
+      path:
+        required: true
+        type: string
+      build_tool:
+        required: true
+        type: string
+      lint_command:
+        required: true
+        type: string
+      test_command:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-test:
+    name: "Lint & Test (${{ inputs.service }})"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.path }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      # --- Node.js setup (frontend) ---
+      - name: Setup Node.js
+        if: inputs.build_tool == 'npm'
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: "${{ inputs.path }}/package-lock.json"
+
+      - name: Install npm dependencies
+        if: inputs.build_tool == 'npm'
+        run: npm ci
+
+      # --- Java/Maven setup (backend services) ---
+      - name: Setup Java 21
+        if: inputs.build_tool == 'maven'
+        uses: actions/setup-java@v5
+        with:
+          java-version: "21"
+          distribution: temurin
+          cache: maven
+
+      # --- Lint ---
+      - name: Lint
+        run: ${{ inputs.lint_command }}
+
+      # --- Test ---
+      - name: Test
+        run: ${{ inputs.test_command }}

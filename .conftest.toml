@@ -1,0 +1,7 @@
+parser = "yaml"
+
+policy = ["policy/kubernetes"]
+
+[dockerfile]
+  parser = "dockerfile"
+  policy = ["policy/dockerfile"]

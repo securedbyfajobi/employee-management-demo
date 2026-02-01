@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # -----------------------------------------------------------
+  # Lint and Test — matrix across all services
+  # -----------------------------------------------------------
+  lint-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: frontend
+            path: frontend
+            build_tool: npm
+            lint_command: "npm run lint"
+            test_command: "npm run test:run"
+          - service: backend
+            path: backend
+            build_tool: maven
+            lint_command: "mvn compile -B"
+            test_command: "mvn test -B"
+          - service: reports-service
+            path: reports-service
+            build_tool: maven
+            lint_command: "mvn compile -B"
+            test_command: "mvn test -B"
+    uses: ./.github/workflows/_lint-and-test.yml
+    with:
+      service: ${{ matrix.service }}
+      path: ${{ matrix.path }}
+      build_tool: ${{ matrix.build_tool }}
+      lint_command: ${{ matrix.lint_command }}
+      test_command: ${{ matrix.test_command }}
+
+  # -----------------------------------------------------------
+  # Docker Build & Push — matrix, main branch only
+  # -----------------------------------------------------------
+  docker:
+    needs: lint-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: frontend
+            path: frontend
+            image_name: ghcr.io/fajobi13/employee-management-demo/frontend
+          - service: backend
+            path: backend
+            image_name: ghcr.io/fajobi13/employee-management-demo/backend
+          - service: reports-service
+            path: reports-service
+            image_name: ghcr.io/fajobi13/employee-management-demo/reports-service
+    uses: ./.github/workflows/_docker-build-push.yml
+    with:
+      service: ${{ matrix.service }}
+      path: ${{ matrix.path }}
+      image_name: ${{ matrix.image_name }}
+      image_tag: ${{ github.sha }}
+    permissions:
+      contents: read
+      packages: write

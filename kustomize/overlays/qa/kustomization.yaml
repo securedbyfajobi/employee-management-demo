@@ -4,11 +4,11 @@ kind: Kustomization
 resources:
   - ../../../k8s
 
-namePrefix: staging-
+namePrefix: qa-
 
 labels:
   - pairs:
-      environment: staging
+      environment: qa
     includeSelectors: false
 
 patches:
@@ -27,7 +27,8 @@ patches:
       kind: Deployment
       name: frontend
 
+# QA-specific config
 configMapGenerator:
-  - name: staging-config
+  - name: qa-config
     literals:
       - LOG_LEVEL=INFO

@@ -1,0 +1,82 @@
+name: Deploy to Environment
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      overlay_path:
+        required: true
+        type: string
+      image_tag:
+        required: true
+        type: string
+      vault_secret_path:
+        required: true
+        type: string
+        description: "Vault path to the kubeconfig secret (e.g. secret/data/k8s/dev-qa/kubeconfig)"
+
+permissions:
+  contents: read
+  id-token: write # Required for OIDC token to authenticate with Vault
+
+jobs:
+  deploy:
+    name: "Deploy to ${{ inputs.environment }}"
+    runs-on: [self-hosted, rhel]
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Fetch kubeconfig from Vault
+        uses: hashicorp/vault-action@v3
+        with:
+          url: ${{ vars.VAULT_ADDR }}
+          method: jwt
+          role: github-deploy-${{ inputs.environment }}
+          secrets: |
+            ${{ inputs.vault_secret_path }} value | KUBE_CONFIG
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ env.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v2
+
+      - name: Set image tags
+        working-directory: ${{ inputs.overlay_path }}
+        run: |
+          kustomize edit set image \
+            employee-frontend=ghcr.io/${{ github.repository_owner }}/employee-management-demo/frontend:${{ inputs.image_tag }} \
+            employee-backend=ghcr.io/${{ github.repository_owner }}/employee-management-demo/backend:${{ inputs.image_tag }} \
+            reports-service=ghcr.io/${{ github.repository_owner }}/employee-management-demo/reports-service:${{ inputs.image_tag }}
+
+      - name: Validate manifests
+        run: kustomize build ${{ inputs.overlay_path }}
+
+      - name: Apply to cluster
+        run: kubectl apply -k ${{ inputs.overlay_path }}
+
+      - name: Verify rollout - frontend
+        run: |
+          kubectl rollout status deployment/${{ inputs.environment }}-frontend \
+            -n employee-app-frontend --timeout=300s
+
+      - name: Verify rollout - backend
+        run: |
+          kubectl rollout status deployment/${{ inputs.environment }}-backend \
+            -n employee-app-backend --timeout=300s
+
+      - name: Verify rollout - reports
+        run: |
+          kubectl rollout status deployment/${{ inputs.environment }}-reports \
+            -n employee-app-backend --timeout=300s
+
+      - name: Cleanup kubeconfig
+        if: always()
+        run: rm -f $HOME/.kube/config

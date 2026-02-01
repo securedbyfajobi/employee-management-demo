@@ -1,0 +1,212 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run weekly on Monday at 06:00 UTC
+    - cron: "0 6 * * 1"
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  # -----------------------------------------------------------
+  # Dependency vulnerability scanning (Trivy filesystem)
+  # -----------------------------------------------------------
+  dependency-scan:
+    name: "Dependencies (${{ matrix.service }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: frontend
+            path: frontend
+          - service: backend
+            path: backend
+          - service: reports-service
+            path: reports-service
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: ${{ matrix.path }}
+          format: sarif
+          output: trivy-${{ matrix.service }}.sarif
+          severity: CRITICAL,HIGH
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-${{ matrix.service }}.sarif
+          category: trivy-${{ matrix.service }}
+
+  # -----------------------------------------------------------
+  # Container image scanning (Trivy)
+  # -----------------------------------------------------------
+  container-scan:
+    name: "Container (${{ matrix.service }})"
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: frontend
+            path: frontend
+          - service: backend
+            path: backend
+          - service: reports-service
+            path: reports-service
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Build image
+        run: docker build -t ${{ matrix.service }}:scan ${{ matrix.path }}
+
+      - name: Run Trivy container scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ matrix.service }}:scan
+          format: sarif
+          output: trivy-container-${{ matrix.service }}.sarif
+          severity: CRITICAL,HIGH
+
+      - name: Upload results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-container-${{ matrix.service }}.sarif
+          category: trivy-container-${{ matrix.service }}
+
+  # -----------------------------------------------------------
+  # CodeQL static analysis
+  # -----------------------------------------------------------
+  codeql:
+    name: "CodeQL (${{ matrix.language }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: java-kotlin
+            build_command: mvn compile -B -f backend/pom.xml
+          - language: javascript-typescript
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Java 21
+        if: matrix.language == 'java-kotlin'
+        uses: actions/setup-java@v5
+        with:
+          java-version: "21"
+          distribution: temurin
+          cache: maven
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: Build Java
+        if: matrix.language == 'java-kotlin'
+        run: ${{ matrix.build_command }}
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: codeql-${{ matrix.language }}
+
+  # -----------------------------------------------------------
+  # OPA Conftest — Kubernetes manifest policy checks
+  # -----------------------------------------------------------
+  conftest-k8s:
+    name: "Conftest K8s (${{ matrix.overlay }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        overlay: [dev, qa, uat, prod]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v2
+
+      - name: Install Conftest
+        env:
+          CONFTEST_VERSION: "0.66.0"
+        run: |
+          curl -sL "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" | tar xz
+          sudo mv conftest /usr/local/bin/
+
+      - name: Build Kustomize manifests
+        run: kustomize build kustomize/overlays/${{ matrix.overlay }} > /tmp/manifests.yaml
+
+      - name: Run Conftest on manifests
+        run: conftest test /tmp/manifests.yaml --policy policy/kubernetes --all-namespaces
+
+  # -----------------------------------------------------------
+  # OPA Conftest — Dockerfile policy checks
+  # -----------------------------------------------------------
+  conftest-docker:
+    name: "Conftest Dockerfile (${{ matrix.service }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: frontend
+            path: frontend/Dockerfile
+          - service: backend
+            path: backend/Dockerfile
+          - service: reports-service
+            path: reports-service/Dockerfile
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install Conftest
+        env:
+          CONFTEST_VERSION: "0.66.0"
+        run: |
+          curl -sL "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" | tar xz
+          sudo mv conftest /usr/local/bin/
+
+      - name: Run Conftest on Dockerfile
+        run: conftest test ${{ matrix.path }} --policy policy/dockerfile --parser dockerfile
+
+  # -----------------------------------------------------------
+  # Secret scanning (Gitleaks)
+  # -----------------------------------------------------------
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
