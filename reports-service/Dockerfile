@@ -12,16 +12,12 @@ COPY src ./src
 RUN mvn package -DskipTests -B
 
 # Runtime stage
-FROM eclipse-temurin:21-jre
-
-# Use non-root user (UID 1000 already exists in base image)
+FROM gcr.io/distroless/java21-debian12:nonroot
 WORKDIR /app
 
 COPY --from=build /app/target/reports-service-1.0.0.jar app.jar
 
-RUN chown 1000:1000 /app/app.jar
-
-USER 1000
+USER nonroot
 
 EXPOSE 8081
 
