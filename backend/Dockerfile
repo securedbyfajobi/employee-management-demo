@@ -6,13 +6,19 @@ RUN mvn dependency:go-offline -B
 COPY src ./src
 RUN mvn clean package -DskipTests -B
 
-# Runtime stage
-FROM gcr.io/distroless/java21-debian12:nonroot
+# Runtime stage - Alpine-based JRE with security updates
+FROM eclipse-temurin:21-jre-alpine
+
+# Apply security patches and create non-root user
+RUN apk upgrade --no-cache && \
+    addgroup -g 1000 appgroup && \
+    adduser -u 1000 -G appgroup -D appuser
+
 WORKDIR /app
 
 COPY --from=build /app/target/*.jar app.jar
 
-USER nonroot
+USER appuser
 
 EXPOSE 8080
 

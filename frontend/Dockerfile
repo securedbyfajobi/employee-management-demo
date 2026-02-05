@@ -9,8 +9,9 @@ RUN npm run build
 # Production stage
 FROM nginx:1.27-alpine
 
-# Prepare for non-root nginx: fix pid path and directory permissions
-RUN sed -i 's|/run/nginx.pid|/tmp/nginx.pid|' /etc/nginx/nginx.conf && \
+# Apply security patches and prepare for non-root nginx
+RUN apk upgrade --no-cache && \
+    sed -i 's|/run/nginx.pid|/tmp/nginx.pid|' /etc/nginx/nginx.conf && \
     chown -R nginx:nginx /var/cache/nginx /var/log/nginx /etc/nginx/conf.d && \
     touch /tmp/nginx.pid && chown nginx:nginx /tmp/nginx.pid
 
