@@ -19,6 +19,8 @@ WORKDIR /app
 
 COPY --from=build /app/target/reports-service-1.0.0.jar app.jar
 
+USER nonroot
+
 EXPOSE 8081
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
