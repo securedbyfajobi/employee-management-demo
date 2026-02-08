@@ -23,6 +23,7 @@ jobs:
       # 1. Keep last 20 tagged versions, delete the rest
       - name: Delete old tagged versions (keep last 20)
         uses: actions/delete-package-versions@v5
+        continue-on-error: true
         with:
           package-name: ${{ matrix.package }}
           package-type: container
@@ -32,6 +33,7 @@ jobs:
       # 2. Delete all untagged (dangling) images
       - name: Delete untagged images
         uses: actions/delete-package-versions@v5
+        continue-on-error: true
         with:
           package-name: ${{ matrix.package }}
           package-type: container
@@ -41,6 +43,7 @@ jobs:
       # 3. Delete PR images older than 7 days
       - name: Delete old PR images
         uses: actions/delete-package-versions@v5
+        continue-on-error: true
         with:
           package-name: ${{ matrix.package }}
           package-type: container
