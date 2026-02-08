@@ -47,7 +47,24 @@ jobs:
             type=raw,value=${{ inputs.image_tag }}
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
-      - name: Build and push
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.path }}
+          load: true
+          tags: ${{ inputs.service }}:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: ${{ inputs.service }}:scan
+          format: table
+          exit-code: "1"
+          severity: CRITICAL
+
+      - name: Push image
         uses: docker/build-push-action@v6
         with:
           context: ${{ inputs.path }}
