@@ -193,20 +193,20 @@ jobs:
         run: conftest test ${{ matrix.path }} --policy policy/dockerfile --parser dockerfile
 
   # -----------------------------------------------------------
-  # Secret scanning (Gitleaks)
+  # Secret scanning (Gitleaks) — disabled until GITLEAKS_LICENSE is configured
   # -----------------------------------------------------------
-  secret-scan:
-    name: Secret scan
-    runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # secret-scan:
+  #   name: Secret scan
+  #   runs-on: ubuntu-latest
+  #   if: github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v6
+  #       with:
+  #         fetch-depth: 0
+  #
+  #     - name: Run Gitleaks
+  #       uses: gitleaks/gitleaks-action@v2
+  #       env:
+  #         GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
