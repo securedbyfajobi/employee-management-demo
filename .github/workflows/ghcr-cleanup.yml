@@ -10,22 +10,19 @@ permissions:
 
 jobs:
   cleanup:
-    name: "Cleanup ${{ matrix.package }}"
+    name: "Cleanup ${{ matrix.service }}"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        package:
-          - employee-management-demo/frontend
-          - employee-management-demo/backend
-          - employee-management-demo/reports-service
+        service: [frontend, backend, reports-service]
     steps:
       # 1. Keep last 20 tagged versions, delete the rest
       - name: Delete old tagged versions (keep last 20)
         uses: actions/delete-package-versions@v5
         continue-on-error: true
         with:
-          package-name: ${{ matrix.package }}
+          package-name: ${{ github.event.repository.name }}/${{ matrix.service }}
           package-type: container
           min-versions-to-keep: 20
           ignore-versions: "^(v\\d+\\.\\d+\\.\\d+|release-|prod-|latest).*"
@@ -35,7 +32,7 @@ jobs:
         uses: actions/delete-package-versions@v5
         continue-on-error: true
         with:
-          package-name: ${{ matrix.package }}
+          package-name: ${{ github.event.repository.name }}/${{ matrix.service }}
           package-type: container
           delete-only-untagged-versions: true
           min-versions-to-keep: 0
@@ -45,7 +42,7 @@ jobs:
         uses: actions/delete-package-versions@v5
         continue-on-error: true
         with:
-          package-name: ${{ matrix.package }}
+          package-name: ${{ github.event.repository.name }}/${{ matrix.service }}
           package-type: container
           min-versions-to-keep: 0
           ignore-versions: "^(?!pr-).*"
